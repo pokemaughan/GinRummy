@@ -1,0 +1,25 @@
+
+#example1 {
+
+    text-align: center;
+    color: white;
+    border: 10px solid black;
+    padding: 30px;
+}
+
+body {
+  padding: 50px;
+  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+  background-image: url("http://1-art.eu/images/backgrounds/rice-paper/ricepaper-green.jpg");
+  
+
+}
+
+#enemyhand, #deck, #discards, #playerhand, #playerdraw {
+    text-align: center;
+    color: white;
+}
+
+a {
+  color: #00B7FF;
+}
