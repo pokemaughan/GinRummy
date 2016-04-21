@@ -35,7 +35,6 @@ router.get('/login', function(req, res, data){
 
 router.post('/startGame', function(req,res,data){
 	var p1 = req.body.username;
-	//console.log(req);
 	db.get("SELECT * FROM User WHERE username=?", [p1], function(err,row){
 		if(err)
 			console.log(err);
@@ -50,19 +49,24 @@ router.post('/startGame', function(req,res,data){
 				var p2 = playerWaiting.shift();
 				
 				cards.shuffle( function(err,cdata) {
-					db.run("INSERT INTO Game (deckid,player1,player2) VALUES (?,?,?)",[cdata.deck_id,p1,p2]);
-					db.run("SELECT last_insert_rowid()", [], function(err, rowid){
-						db.run("UPDATE User SET currentGame=? WHERE username=?", [this.lastID,p1]);
-						db.run("UPDATE User SET currentGame=? WHERE username=?", [this.lastID,p2]);
-						
-						cards.setDeck(cdata.deck_id);
-						cards.draw(function(err,cdata){
-							cards.addToPile('discard',[cdata.cards[0].code],function(err,cdddata){});
-						});
-						msgforplayer.push(p2);
-						res.json({
-							game: this.lastID,
-							deck: data.deck_id
+					var deckid = cdata.deck_id;
+					if(err)
+						console.log("err with shuf");
+					db.run("INSERT INTO Game (deckid,player1,player2) VALUES (?,?,?)",[deckid,p1,p2], function(err,row){
+						lastd = this.lastID;
+						db.run("UPDATE User SET currentGame=? WHERE username=?", [lastd,p1], function(err, row){
+							db.run("UPDATE User SET currentGame=? WHERE username=?", [lastd,p2], function(err,row){
+								cards.draw(function(err,cddata){
+									var useme = cddata.cards[0].code;
+									cards.addToPile('discard',[useme],function(err,cdddata){
+										msgforplayer.push(p2);
+										res.json({
+											game: lastd,
+											deck: deckid
+										});
+									});
+								});
+							});
 						});
 					});
 				});
@@ -78,7 +82,6 @@ router.get('/deal', function(req,res,data){
 		if(row === undefined)
 			res.sendStatus(403);
 		else{
-			var game = row.currentGame;
 			cards.draw({number_of_cards:10}, function (err,data) {
 				res.json(data);
 			});
@@ -102,7 +105,6 @@ router.get('/drawCard', function(req,res,next) {
 
 	cards.setDeck(deck);
 	cards.draw(function(err, data) {
-		//console.log("draw card " + data.deck_id);
 		res.json(data);
 	});
 });
@@ -110,21 +112,29 @@ router.get('/drawCard', function(req,res,next) {
 router.get('/discard', function(req,res,next) {
 	var p1 = req.query.username;
 	var deck = req.query.deckid;
-	var game = req.query.gameid;
+	var gamed = req.query.gameid;
+	console.log(gamed);
 	var card = req.query.card;
-
+	console.log("in discard");
 	cards.setDeck(deck);
 	cards.addToPile('discard', [card],function(err,data) {
-		db.run("SELECT * FROM Game WHERE GameID=?", [game], function(err,row){
-			if(this.player1 == p1){
-				db.run("UPDATE Game SET turn=? WHERE GameID=?", [2,game]);
-				msgforplayer.push(this.player2);
-			}else if(this.player2 == p1){
-				db.run("UPDATE Game SET turn=? WHERE GameID=?", [1,game]);
-				msgforplayer.push(this.player1);
+		db.get("SELECT * FROM Game WHERE GameID=?", [gamed], function(err,row){
+			var plar1 = row.player1;
+			var plar2 = row.player2;
+			if(plar1 == p1){
+				db.run("UPDATE Game SET turn=? WHERE GameID=?", [2,gamed],function(err,row){
+					msgforplayer.push(plar2);
+					res.json(data);
+				});
+			}else if(plar2 == p1){
+				db.run("UPDATE Game SET turn=? WHERE GameID=?", [1,gamed], function(err,row){
+					msgforplayer.push(plar1);
+					res.json(data);
+				});
+			}else{
+				res.sendStatus(404);
 			}
 		});
-		res.json(data);
 	});
 });
 
@@ -135,9 +145,14 @@ router.get('/getDiscard', function(req,res,data){
 
 	cards.setDeck(deck);
 	cards.drawFromPile('discard', function(err,cdata){
-		cards.addToPile('discard', [cdata.cards[0].code], function(err,ddata){
-			//do nothin
-		res.json(cdata.cards[0]);
+		if(cdata === undefined){
+			res.sendStatus(500);
+			console.log("get discard probs");
+			return;
+		}
+		var car = cdata.cards[0];
+		cards.addToPile('discard', [car.code], function(err,ddata){
+			res.json(car);
 		});
 	});
 });
@@ -150,27 +165,26 @@ router.get('/status', function(req, res, data){
 		for(var i = 0; i < msgforplayer.length; i++){
 			if(msgforplayer[i] == user){
 				msgforplayer.splice(i,1);
-				if(gameid === undefined){ //
+				if(gameid === undefined){ //join game
 					db.get("SELECT * FROM User WHERE username=?", [user], function(err, row){
-						db.get("SELECT * FROM Game WHERE GameID=?", [this.currentGame], function(err, row){
-							res.json({game:this.GameID,deck:this.deckid});
-								
+						gameid = row.currentGame;
+						console.log("here here now " + gameid);
+						db.get("SELECT * FROM Game WHERE GameID=?", [gameid], function(err, row){
+							if(row === undefined)
+								console.log("darn row");
+							res.json({
+								game:gameid,
+								deck:row.deckid
+							});
 						});
 					});
-				}else{
+				}else{//turn?
 					db.get("SELECT * FROM Game WHERE player1=? OR player2=?", [user, user], function(err, row){
 						//ADD if turn = 0 then the game is over.
-						if(this.player1 == user){
-							
-							if(this.turn == 1)
-								res.sendStatus(200);
-							else 
-								res.sendStatus(500);
+						if(row.player1 == user){
+							res.sendStatus(200);
 						}else{
-							if(this.turn == 2)
-								res.sendStatus(200);
-							else 
-								res.sendStatus(500);
+							res.sendStatus(200);
 						}
 					});
 				}

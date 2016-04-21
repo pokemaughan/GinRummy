@@ -3,6 +3,8 @@ var enemyhand = [];
 var gameID;
 var deckID;
 
+var myTurn = false;
+
 var deadwood;
 
 /*gamestate:
@@ -69,10 +71,57 @@ $(document).ready(function(){
 	$('#ng').click(function(){
 		if(gamestate===-1){
 		//getting a new deck
+		//{
 		playerhand = []; enemyhand = [];
 		clearAllHTML();
 		var url = "/startGame";
 		console.log("username " +localStorage.username);
+		var setup = function(){
+			var urll = "/getDiscard";
+            $.ajax({
+                url:urll,
+    	        dataType:'json',
+            	type:'GET',
+                    data:{
+						deckid: deckID
+                     },
+
+                  	success: function(res) { //res is the card[0]
+                   		newimg = '<img src="' + res.images.png + '" style = "width:150px;height:200px;" />';
+                   		$("#discards").append(newimg);
+                    }
+			})
+	
+			urrl = "/deal";
+			$.ajax({
+				url:urrl,
+				dataType: 'json',
+				type: 'GET',
+				data:{
+					username: localStorage.username,
+					deckid: deckID
+				},
+				
+				success: function(res,textStatus,xhr) {
+					if(xhr.status==403){ //undefined row
+					}
+					else{
+						playerhand = res.cards; // setting the player's hand
+						$("#enemyhand").append('<p> Enemy Hand </p>');
+						$("#discards").append('<p> Discard Pile </p>');
+						$("#deck").append('<p> Draw Pile </p> <img src = "images/cheetah-card.gif" style="width:150px;height:200px;" />');
+				
+						for (var i = 0; i < 10; i++){
+							newimg = '<img src="images/cheetah-card.gif" style="width:150px;height:200px;" />';
+							$("#enemyhand").append(newimg);
+						}
+
+						$("#playerdraw").append('<p> Your Hand </p>');
+						printPH();
+					}
+				}
+			})
+		}
 		$.ajax({
 			url:url,
 			dataType: 'json',
@@ -80,141 +129,58 @@ $(document).ready(function(){
 			data:{
 				username: localStorage.username				
 			},
-			
-			statuscode:{
-				200: function(res) {
-				console.log("SUCCESS");
-				
+			statusCode: {
+    			200: function(res,statText,xhr){
+					console.log("SUCCESS");
 					console.log("200");
 					gameID = res.game;
 					deckID = res.deck;
-				
-					var urll = "/getDiscard";
-	                        $.ajax({
-        	                url:urll,
-                	        dataType:'json',
-                        	type:'GET',
-                                data:{
-					deckid: deckID
-                                 },
+					
+					setup();
+					myTurn = true;
 
-                              	success: function(res) { //res is the card[0]
-                               	newimg = '<img src="' + res.images.png + '" style = "width:150px;height:200px;" />';
-                               	$("#discards").append(newimg);
-                                        	}
-					})
-			
-					var urrl = "/deal";
-					$.ajax({
-						url:urrl,
-						dataType: 'json',
-						type: 'GET',
-						data:{
-							username: localStorage.username,
-							deckid: deckID
-						},
-						
-						success: function(res,textStatus,xhr) {
-							if(xhr.status===403){ //undefined row
-							}
-							else{
-								playerhand = res.cards; // setting the player's hand
-								$("#enemyhand").append('<p> Enemy Hand </p>');
-								$("#discards").append('<p> Discard Pile </p>');
-								$("#deck").append('<p> Draw Pile </p> <img src = "images/cheetah-card.gif" style="width:150px;height:200px;" />');
-						
-								for (var i = 0; i < 10; i++){
-									newimg = '<img src="images/cheetah-card.gif" style="width:150px;height:200px;" />';
-									$("#enemyhand").append(newimg);
-								}
-
-								$("#playerdraw").append('<p> Your Hand </p>');
-								printPH();
-							}
-						}
-					})
 				},
-			
-
-				
-				202: function(res){//if nobody is there
-                                        var ingame = false;
+				202: function(res,statText,xhr){
 					console.log("202bb");
-                                        while(!ingame){
-						console.log("looper");
-                                                var url = '/status';
-                                                $.ajax({
-                                                        url:url,
-                                                        dataType:'json',
-                                                        type:'GET',
-                                                        data:{
-                                                                username: localStorage.username
-                                                        },
-
-                                                        success: function(res){ //game id, deck id
-                                                                gameID=res.gameid;
-                                                                deckID=res.deckid;
-								ingame=true;
-                                                        }
-                                                })
-                                        }
-						var urll = "/getDiscard";
-	                        $.ajax({
-        	                url:urll,
-                	        dataType:'json',
-                        	type:'GET',
+                    var interval = window.setInterval(function(){
+						
+                        var url = '/status';
+                        $.ajax({
+                                url:url,
+                                dataType:'json',
+                                type:'GET',
                                 data:{
-					deckid: deckID
-                                 },
+                                       username: localStorage.username
+                                },
 
-                              	success: function(res) { //res is the card[0]
-                               	newimg = '<img src="' + res.images.png + '" style = "width:150px;height:200px;" />';
-                               	$("#discards").append(newimg);
-                                        	}
-					})
-			
-					var urrl = "/deal";
-					$.ajax({
-						url:urrl,
-						dataType: 'json',
-						type: 'GET',
-						data:{
-							username: localStorage.username,
-							deckid: deckID
-						},
-						
-						success: function(res,textStatus,xhr) {
-							if(xhr.status===403){ //undefined row
-							}
-							else{
-								playerhand = res.cards; // setting the player's hand
-								$("#enemyhand").append('<p> Enemy Hand </p>');
-								$("#discards").append('<p> Discard Pile </p>');
-								$("#deck").append('<p> Draw Pile </p> <img src = "images/cheetah-card.gif" style="width:150px;height:200px;" />');
-						
-								for (var i = 0; i < 10; i++){
-									newimg = '<img src="images/cheetah-card.gif" style="width:150px;height:200px;" />';
-									$("#enemyhand").append(newimg);
-								}
-
-								$("#playerdraw").append('<p> Your Hand </p>');
-								printPH();
-							}
-						}
-					})
-				}
-			
-
+                                success: function(res){ //game id, deck id
+                                        gameID = res.game;
+                                        deckID = res.deck;
+                                        
+										setup();
+										myTurn = false;
+										window.clearInterval(interval);
+										wait();
                                 }
-					})
-		gamestate = 0;
+                        })
+                    }, 5000);
+                    
+                    
+					
+				}
+ 			}
+		
+
+
+		})
 		}
+		gamestate = 0;
 	});
 
 
 	//draw from deck
 	$('#deck').click(function(){
-		if(gamestate ===0) {
+		if(gamestate ===0 && myTurn==true) {
 			var url = "/drawCard";
 			$.ajax({
 				url:url,
@@ -237,7 +203,7 @@ $(document).ready(function(){
 
 	//draw from discard pile
 	$('#discards').click(function(){
-		if (gamestate === 0){
+		if (gamestate === 0 && myTurn==true){
 			var url = "/drawFromDiscard";
 			$.ajax({
 				url:url,
@@ -252,9 +218,11 @@ $(document).ready(function(){
 					console.log("success");
 					playerhand[10] = res.cards[0];
 					newimg = '<img src="' +playerhand[10].images.png + '" style="width:150px;height:200px;" />';
+					gamestate = 1;
+					myTurn = true;
 					$("#playerdraw").append(newimg);
 					$("#discards").empty();
-					gamestate = 1;
+					
 				}
 			})
 		}
@@ -262,17 +230,18 @@ $(document).ready(function(){
 
 	//discard your draw
 	$('#playerdraw').click(function(){
-		if (gamestate === 1){
+		if (gamestate == 1 && myTurn==true){
+			console.log("hello friend " + gameID);
 			var url = "/discard";
 			$.ajax({
 				url:url,
 				dataType:'json',
 				type:'GET',
 				data:{
-					card: playerhand[10].code,
 					username: localStorage.username,
 					deckid: deckID,
-					gameid: gameID
+					gameid: gameID,
+					card: playerhand[10].code
 				},
 			
 				success: function(res) {
@@ -282,11 +251,52 @@ $(document).ready(function(){
 					$("#playerdraw").empty();
 					$("#playerdraw").append ('<p> Your Hand </p>');
 					gamestate = 0;
+					myTurn = false;
+					wait();
 				}
 			})
 		}
 	});
 });
+
+
+function wait(){
+	var interval = window.setInterval(function(){
+		
+        var url = '/status';
+        $.ajax({
+                url:url,
+                dataType:'json',
+                type:'GET',
+                data:{
+                       username: localStorage.username,
+                       game: gameID
+                },
+
+                statusCode: {
+                	200: function(res,statText,xhr){
+                		myTurn = true;
+                		var urll = "/getDiscard";
+			            $.ajax({
+			                url:urll,
+			    	        dataType:'json',
+			            	type:'GET',
+			                    data:{
+									deckid: deckID
+			                     },
+
+			                  	success: function(res) { //res is the card[0]
+			                  		$("#discards").empty();
+			                   		newimg = '<img src="' + res.images.png + '" style = "width:150px;height:200px;" />';
+			                   		$("#discards").append(newimg);
+			                    }
+						})
+                		window.clearInterval(interval);
+                	}
+                }
+        })
+    }, 1000);
+}
 
 //debugging
 function print(end){
@@ -297,7 +307,7 @@ function print(end){
 
 //clicked a card in hand to discard
 $(document).on("click", ".pcard", function(){
-	if (gamestate === 1) {
+	if (gamestate == 1 && myTurn==true) {
 		
 		var disc = event.target.id.split("_"); // parses _, leaving "pcard,IDOFCARD"
 		var card = playerhand[parseInt(disc[1])]; // gets the card at that ID
@@ -329,6 +339,8 @@ $(document).on("click", ".pcard", function(){
 				printPH();
 
 				gamestate = 0;
+				myTurn = false;
+				wait();
 			}
 		})
 	}
@@ -425,4 +437,4 @@ function checkforwin(a,b){
 		}
 	}
 	return;
-}
+}			
